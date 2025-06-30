@@ -1,50 +1,48 @@
-import { useState } from "react";
+import React, { useState, useEffect, type FormEvent } from "react";
 import Spinner from "./components/spinner/Spinner";
 import TodoList from "./components/TodoList";
-import { useTodos } from "./hooks/useTodos";
 import { useDebounce } from "./hooks/useDebounce";
+import { fetchTodos, addTodo, updateTodo, deleteTodo } from "./store/actions";
+import { useAppDispatch, useAppSelector } from "./store";
 
-export const App = () => {
+export const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortAlphabetically, setSortAlphabetically] = useState<boolean>(false);
+  const [sortAlpha, setSortAlpha] = useState(false);
   const [newTodo, setNewTodo] = useState("");
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const debounced = useDebounce<string>(searchTerm, 500);
 
-  const { todos, loading, error, addTodo, updateTodo, deleteTodo } = useTodos(
-    debouncedSearchTerm,
-    sortAlphabetically
-  );
+  const dispatch = useAppDispatch();
+  const { todos, loading, error } = useAppSelector((state) => state.todosState);
 
-  const handleAddTodo = (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    dispatch(fetchTodos(debounced, sortAlpha));
+  }, [debounced, sortAlpha, dispatch]);
+
+  const onAdd = (e: FormEvent) => {
     e.preventDefault();
-    if (newTodo.trim() === "") return;
-    addTodo(newTodo);
+    if (!newTodo.trim()) return;
+    dispatch(addTodo(newTodo));
     setNewTodo("");
   };
 
   return (
     <div className="app">
       <h1>Список дел</h1>
-
       <div className="controls">
         <input
           type="search"
-          name="search"
           placeholder="Поиск дел..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <button onClick={() => setSortAlphabetically((prev) => !prev)}>
-          {sortAlphabetically
-            ? "Отключить сортировку"
-            : "Сортировать по алфавиту"}
+        <button onClick={() => setSortAlpha((p) => !p)}>
+          {sortAlpha ? "Отключить сортировку" : "Сортировать по алфавиту"}
         </button>
       </div>
 
-      <form onSubmit={handleAddTodo} className="add-todo-form">
+      <form onSubmit={onAdd} className="add-todo-form">
         <input
           type="text"
-          name="newTodo"
           placeholder="Новое дело..."
           value={newTodo}
           onChange={(e) => setNewTodo(e.target.value)}
@@ -57,7 +55,11 @@ export const App = () => {
       ) : error ? (
         <h1>Ошибка: {error}</h1>
       ) : (
-        <TodoList todos={todos} onUpdate={updateTodo} onDelete={deleteTodo} />
+        <TodoList
+          todos={todos}
+          onUpdate={(t) => dispatch(updateTodo(t))}
+          onDelete={(id) => dispatch(deleteTodo(id))}
+        />
       )}
     </div>
   );
